@@ -1,102 +1,87 @@
-﻿using System;
-using Renci.SshNet;
-using static System.Net.Mime.MediaTypeNames;
+﻿using Tftp.Net;
 
 
 public class NandUtils
 {
+    static string host = "169.254.13.37";
+    static string username = "root";
+    static string password = "";
+    static long currentExpectedSize = 0;
+
+    private static AutoResetEvent TransferFinishedEvent = new AutoResetEvent(false);
+
     public static void Main(string[] args)
     {
-        string host = "169.254.13.37";
-        string username = "root";
-        string password = "";
-        string path = AppDomain.CurrentDomain.BaseDirectory;
-
-        using (SshClient ssh = new SshClient(host, username, password))
+        if (args.Length == 0)
         {
-            ssh.Connect();
-            DumpNAND(ssh, path, "mmcblk0boot0", 4111);
-            DumpNAND(ssh, path, "mmcblk0boot1", 4111);
-            DumpNAND(ssh, path, "mmcblk0p1", 1396736*512);
-            DumpNAND(ssh, path, "mmcblk0p2", 16384*512);
-            DumpNAND(ssh, path, "mmcblk0p3", 67);
-            DumpNAND(ssh, path, "mmcblk0p4", 0);
-            DumpNAND(ssh, path, "mmcblk0p5", 4096*512);
-            DumpNAND(ssh, path, "mmcblk0p6", 16384*512);
-            DumpNAND(ssh, path, "mmcblk0p7", 204800*512);
-            DumpNAND(ssh, path, "mmcblk0p8", 1376256*512);
-            DumpNAND(ssh, path, "mmcblk0p9", 1376256* 512);
-            DumpNAND(ssh, path, "mmcblk0p10", 8192*512);
-        }
-    }
-
-    private static void DumpNAND(SshClient ssh, string path, string nandName, uint size)
-    {
-        if (File.Exists(Path.Combine(path, $@"{nandName}.gz")))
-        {
-            Console.WriteLine($"{nandName} already exists. Skipping...");
+            Console.WriteLine("usage : nand_dump.exe full | split");
+            Console.WriteLine("     full : dumps a single file for the entire nand, including all partitions");
+            Console.WriteLine("     split : dumps inidividual files for partitions 1, 2, 5, 6 (kernel), 7 (filsystem), 8 (game save states), 9 (emulator and games) and 10");
             return;
         }
-        Console.WriteLine($"Backing up {nandName}");
 
-        // ASCII animation to show that time is passing
-        string[] animation = new string[] { "|", "/", "-", "\\" };
-        int animationIndex = 0;
+        string path = AppDomain.CurrentDomain.BaseDirectory;
 
-        using (var fileStream = new FileStream(Path.Combine(path, $@"{nandName}.gz.part"), FileMode.Create, FileAccess.Write))
+        if (args[0].ToLower() == "full")
         {
-            uint totalBytesRead = 0;
-            byte[] buffer = new byte[1024 * 1024]; // 1 MB buffer
-
-            while (totalBytesRead < size)
-            {
-                uint bytesToRead = Math.Min(1024 * 1024, size - totalBytesRead);
-                SshCommand command = ssh.CreateCommand($"cd /dev;dd if={nandName} bs=1M count=1 skip={totalBytesRead / (1024 * 1024)}");
-
-                var result = command.BeginExecute();
-                var outputStream = command.OutputStream;
-
-                while (!result.IsCompleted)
-                {
-                    double progress = (double)totalBytesRead * 100 / size;
-                    Console.Write($"\rEstimated progress: {progress:F1}% (may not reach or exceed 100%)");
-                    Console.Write($"\r{animation[animationIndex++ % animation.Length]}");
-                    Thread.Sleep(500);
-                }
-
-                int bytesRead = outputStream.Read(buffer, 0, (int)bytesToRead);
-                fileStream.Write(buffer, 0, bytesRead);
-                totalBytesRead += (uint)bytesRead;
-            }
+            DownloadFile("/dev/mmcblk0", Path.Combine(path, "full_nand.bin"), "full nand", 3909091328);
         }
-        Console.WriteLine();
-
-        File.Move(Path.Combine(path, $@"{nandName}.gz.part"), Path.Combine(path, $@"{nandName}.gz"));
-
-        /*
-        Console.WriteLine($"Backing up {nandName}");
-        //SshCommand command = ssh.CreateCommand($"cd /dev;gzip -c {nandName}");
-        SshCommand command = ssh.CreateCommand($"cd /dev;dd if={nandName}");
-
-        // ASCII animation to show that time is passing
-        string[] animation = new string[] { "|", "/", "-", "\\" };
-        int animationIndex = 0;
-
-        var result = command.BeginExecute();
-        var outputStream = command.OutputStream;
-        while (!result.IsCompleted)
+        else if (args[0].ToLower() == "split")
         {
-            double progress = (double)outputStream.Length * 100 / size; 
-            Console.Write($"\rEstimated progress: {progress:F1}% (may not reach or exceed 100%)");
-            Console.Write($"\r{animation[animationIndex++ % animation.Length]}");
-            Thread.Sleep(500);
+            DownloadFile("/dev/mmcblk0p1", Path.Combine(path, "mmcblk0p1"), "partition 1", 1347584 * 512);
+            DownloadFile("/dev/mmcblk0p2", Path.Combine(path, "mmcblk0p2"), "partition 2", 16384 * 512);
+            DownloadFile("/dev/mmcblk0p5", Path.Combine(path, "mmcblk0p5"), "partition 5", 4096 * 512);
+            DownloadFile("/dev/mmcblk0p6", Path.Combine(path, "mmcblk0p6"), "partition 6", 16384 * 512);
+            DownloadFile("/dev/mmcblk0p7", Path.Combine(path, "mmcblk0p7"), "partition 7", 204800 * 512);
+            DownloadFile("/dev/mmcblk0p8", Path.Combine(path, "mmcblk0p8"), "partition 8", 1376256 * 512);
+            DownloadFile("/dev/mmcblk0p9", Path.Combine(path, "mmcblk0p9"), "partition 9", 4587520L * 512);
+            DownloadFile("/dev/mmcblk0p10", Path.Combine(path, "mmcblk0p10"), "partition 10", 8192 * 512);
         }
-        Console.WriteLine();
-
-        byte[] data = new byte[command.OutputStream.Length];
-        command.OutputStream.Read(data, 0, data.Length);
-        File.WriteAllBytes(Path.Combine(path, $@"{nandName}.gz.part"), data);
-        File.Move(Path.Combine(path, $@"{nandName}.gz.part"), Path.Combine(path, $@"{nandName}.gz"));
-        */
     }
-}
+
+    public static void DownloadFile(string remoteFile, string localFile, string description, long expectedSize)
+    {
+        currentExpectedSize = expectedSize;
+
+        Console.WriteLine("Dumping " + description + " (" + remoteFile + ") to " + localFile + "...");
+        //Setup a TftpClient instance
+        var client = new TftpClient(host);
+
+        //Prepare a simple transfer
+        ITftpTransfer transfer = client.Download(remoteFile);
+        transfer.TransferMode = TftpTransferMode.octet;
+
+        transfer.BlockSize = 512 * 16; // Ajustez la taille de bloc si nécessaire
+
+        //Capture the events that may happen during the transfer
+        transfer.OnProgress += new TftpProgressHandler(transfer_OnProgress);
+        transfer.OnFinished += new TftpEventHandler(transfer_OnFinshed);
+        transfer.OnError += new TftpErrorHandler(transfer_OnError);
+
+        //Start the transfer and write the data that we're downloading into a file stream
+        Stream stream = new FileStream(localFile, FileMode.Create, FileAccess.Write);
+        transfer.Start(stream);
+        
+        //Wait for the transfer to finish
+        TransferFinishedEvent.WaitOne();
+        //Console.ReadKey();
+    }
+
+    static void transfer_OnProgress(ITftpTransfer transfer, TftpTransferProgress progress)
+    {
+        Console.Write("\rTransfer running. Progress: " + progress.TransferredBytes * 100 / currentExpectedSize + "%" + " (" + progress.TransferredBytes / (1024 * 1024) + "MB / " + currentExpectedSize / (1024 * 1024) + " MB)");
+    }
+
+    static void transfer_OnError(ITftpTransfer transfer, TftpTransferError error)
+    {
+        Console.WriteLine("Transfer failed: " + error);
+        TransferFinishedEvent.Set();
+    }
+
+    static void transfer_OnFinshed(ITftpTransfer transfer)
+    {
+        Console.WriteLine("\nTransfer succeeded.");
+        TransferFinishedEvent.Set();
+    }
+
+    }

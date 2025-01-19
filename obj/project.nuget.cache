@@ -1,22 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "CzwxKkqXUtY=",
+  "dgSpecHash": "gs8lZl9ED8c=",
   "success": true,
   "projectFilePath": "E:\\pce\\dev-git\\nand_dump\\nand_dump.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\Bix\\.nuget\\packages\\ssh.net\\2020.0.1\\ssh.net.2020.0.1.nupkg.sha512",
-    "C:\\Users\\Bix\\.nuget\\packages\\sshnet.security.cryptography\\1.3.0\\sshnet.security.cryptography.1.3.0.nupkg.sha512"
+    "C:\\Users\\Bix\\.nuget\\packages\\tftp.net\\1.3.0\\tftp.net.1.3.0.nupkg.sha512"
   ],
-  "logs": [
-    {
-      "code": "NU1902",
-      "level": "Warning",
-      "warningLevel": 1,
-      "message": "Le package 'SSH.NET' 2020.0.1 présente une vulnérabilité de gravité moyenne connue, https://github.com/advisories/GHSA-72p8-v4hg-v45p.",
-      "libraryId": "SSH.NET",
-      "targetGraphs": [
-        "net8.0"
-      ]
-    }
-  ]
+  "logs": []
 }

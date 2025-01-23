@@ -10,51 +10,114 @@ public class NandUtils
 
     private static AutoResetEvent TransferFinishedEvent = new AutoResetEvent(false);
 
+    private static readonly Dictionary<int, (string Path, long Size)> PartitionsPCE = new Dictionary<int, (string, long)>
+    {
+        { 1, ("/dev/mmcblk0p1", 1347584 * 512) },
+        { 2, ("/dev/mmcblk0p2", 16384 * 512) },
+        { 5, ("/dev/mmcblk0p5", 4096 * 512) },
+        { 6, ("/dev/mmcblk0p6", 16384 * 512) },
+        { 7, ("/dev/mmcblk0p7", 204800 * 512) },
+        { 8, ("/dev/mmcblk0p8", 1376256 * 512) },
+        { 9, ("/dev/mmcblk0p9", 4587520L * 512) },
+        { 10, ("/dev/mmcblk0p10", 8192 * 512) }
+    };
+
     public static void Main(string[] args)
     {
+        // Check if no arguments are provided
         if (args.Length == 0)
         {
+            // Display usage instructions
             Console.WriteLine("usage : nand_dump.exe [command]");
             Console.WriteLine("     [command]");
             Console.WriteLine("         full : dumps a single file for the entire nand, including all partitions");
             Console.WriteLine("         split : dumps inidividual files for partitions 1, 2, 5, 6 (kernel), 7 (filsystem), 8 (game save states), 9 (emulator and games) and 10");
-            Console.WriteLine("         restore N : restore partition N if mmcblk0pN is available");
-            Console.WriteLine("         -bstart=starting block -bcount=number of blocks to dump -bsize=block size (512, 1024, 2048, 4096, 8192)");
-
+            Console.WriteLine("         restore N file: restore partition N from file");
+            Console.WriteLine("         fullrestore file: restore the entire nand from a given file");
             return;
         }
 
+        // Get the base directory of the application
         string path = AppDomain.CurrentDomain.BaseDirectory;
 
+        // Handle the "full" command to dump the entire NAND
         if (args[0].ToLower() == "full")
         {
+            // Download the entire NAND to a single file
             DownloadFile("/dev/mmcblk0", Path.Combine(path, "full_nand.bin"), "full nand", 3909091328);
         }
+        // Handle the "split" command to dump individual partitions
         else if (args[0].ToLower() == "split")
         {
-            DownloadFile("/dev/mmcblk0p1", Path.Combine(path, "mmcblk0p1"), "partition 1", 1347584 * 512);
-            DownloadFile("/dev/mmcblk0p2", Path.Combine(path, "mmcblk0p2"), "partition 2", 16384 * 512);
-            DownloadFile("/dev/mmcblk0p5", Path.Combine(path, "mmcblk0p5"), "partition 5", 4096 * 512);
-            DownloadFile("/dev/mmcblk0p6", Path.Combine(path, "mmcblk0p6"), "partition 6", 16384 * 512);
-            DownloadFile("/dev/mmcblk0p7", Path.Combine(path, "mmcblk0p7"), "partition 7", 204800 * 512);
-            DownloadFile("/dev/mmcblk0p8", Path.Combine(path, "mmcblk0p8"), "partition 8", 1376256 * 512);
-            DownloadFile("/dev/mmcblk0p9", Path.Combine(path, "mmcblk0p9"), "partition 9", 4587520L * 512);
-            DownloadFile("/dev/mmcblk0p10", Path.Combine(path, "mmcblk0p10"), "partition 10", 8192 * 512);
+            // Loop through each partition and download it to a separate file
+            foreach (var partition in PartitionsPCE)
+            {
+                DownloadFile(partition.Value.Path, Path.Combine(path, $"mmcblk0p{partition.Key}"), $"partition {partition.Key}", partition.Value.Size);
+            }
         }
+        // Handle the "restore" command to restore a specific partition
         else if (args[0].ToLower() == "restore")
         {
-            if (args.Length < 2)
+            // Check if the correct number of arguments are provided
+            if (args.Length < 3)
             {
-                Console.WriteLine("usage : nand_dump.exe restore N");
+                // Display usage instructions for restore command
+                Console.WriteLine("usage : nand_dump.exe restore N file");
                 Console.WriteLine("     N : partition number to restore");
+                Console.WriteLine("     file : path to the file to restore from");
                 return;
             }
-            string partition = "/dev/mmcblk0p" + args[1];
-            string file = Path.Combine(path, "mmcblk0p" + args[1]);
+            int partitionNumber = int.Parse(args[1]);
+            string file = args[2];
+            // Check if the file exists
             if (File.Exists(file))
             {
-                Console.WriteLine("Restoring " + partition + " from " + file);
-                UploadFile(partition, file, "partition " + args[1]);
+                long fileSize = new FileInfo(file).Length;
+                // Check if the file size matches the partition size
+                if (PartitionsPCE.ContainsKey(partitionNumber) && PartitionsPCE[partitionNumber].Size == fileSize)
+                {
+                    string partition = PartitionsPCE[partitionNumber].Path;
+                    Console.WriteLine("Restoring " + partition + " from " + file);
+                    // Upload the file to the specified partition
+                    UploadFile(partition, file, "partition " + partitionNumber);
+                }
+                else
+                {
+                    Console.WriteLine("File size does not match the partition size.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("File " + file + " not found");
+            }
+        }
+        // Handle the "fullrestore" command to restore the entire NAND
+        else if (args[0].ToLower() == "fullrestore")
+        {
+            // Check if the correct number of arguments are provided
+            if (args.Length < 2)
+            {
+                // Display usage instructions for fullrestore command
+                Console.WriteLine("usage : nand_dump.exe fullrestore file");
+                Console.WriteLine("     file : path to the file to restore from");
+                return;
+            }
+            string file = args[1];
+            // Check if the file exists
+            if (File.Exists(file))
+            {
+                long fileSize = new FileInfo(file).Length;
+                // Check if the file size matches the full NAND size
+                if (fileSize == 3909091328)
+                {
+                    Console.WriteLine("Restoring full nand from " + file);
+                    // Upload the file to the entire NAND
+                    UploadFile("/dev/mmcblk0", file, "full nand");
+                }
+                else
+                {
+                    Console.WriteLine("File size does not match the full nand size.");
+                }
             }
             else
             {
@@ -113,7 +176,7 @@ public class NandUtils
         //Start the transfer and write the data that we're downloading into a file stream
         Stream stream = new FileStream(localFile, FileMode.Create, FileAccess.Write);
         transfer.Start(stream);
-        
+
         //Wait for the transfer to finish
         TransferFinishedEvent.WaitOne();
         //Console.ReadKey();
@@ -135,5 +198,4 @@ public class NandUtils
         Console.WriteLine("\nTransfer succeeded.");
         TransferFinishedEvent.Set();
     }
-
-    }
+}

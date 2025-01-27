@@ -50,6 +50,18 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "DiscUtils": {
+              "target": "Package",
+              "version": "[0.16.13, )"
+            },
+            "DiscUtils.Ext": {
+              "target": "Package",
+              "version": "[0.16.13, )"
+            },
+            "DiscUtils.Streams": {
+              "target": "Package",
+              "version": "[0.16.13, )"
+            },
             "Microsoft.NET.ILLink.Tasks": {
               "suppressParent": "All",
               "target": "Package",

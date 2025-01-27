@@ -1,11 +1,14 @@
 ﻿using Tftp.Net;
+using DiscUtils;
+using DiscUtils.Ext;
+using DiscUtils.Streams;
+using DiscUtils.Iso9660;
+using DiscUtils.Fat;
 
 
 public class NandUtils
 {
     static string host = "169.254.13.37";
-    static string username = "root";
-    static string password = "";
     static long currentExpectedSize = 0;
 
     private static AutoResetEvent TransferFinishedEvent = new AutoResetEvent(false);
@@ -24,24 +27,62 @@ public class NandUtils
 
     public static void Main(string[] args)
     {
+        // Get the base directory of the application
+        string path = AppDomain.CurrentDomain.BaseDirectory;
+
         // Check if no arguments are provided
         if (args.Length == 0)
         {
             // Display usage instructions
             Console.WriteLine("usage : nand_dump.exe [command]");
             Console.WriteLine("     [command]");
+            Console.WriteLine("         test : tests TFTP connection");
             Console.WriteLine("         full : dumps a single file for the entire nand, including all partitions");
             Console.WriteLine("         split : dumps inidividual files for partitions 1, 2, 5, 6 (kernel), 7 (filsystem), 8 (game save states), 9 (emulator and games) and 10");
             Console.WriteLine("         restore N file: restore partition N from file");
             Console.WriteLine("         fullrestore file: restore the entire nand from a given file");
-            return;
+            Console.WriteLine("         extract file destination: extract files from dumped partition 'file' to destination folder");
         }
+        else if (args[0].ToLower() == "extract")
+        {
+            // Check if the correct number of arguments are provided
+            if (args.Length < 3)
+            {
+                // Display usage instructions for extract command
+                Console.WriteLine("usage : nand_dump.exe extract partition destination");
+                Console.WriteLine("     file : dumped partition file to extract files from");
+                Console.WriteLine("     destination : path to the destination folder");
+                return;
+            }
+            else
+            {
+                string filename = args[1];
+                string destination = args[2];
+                extract(filename, destination);
+            }
 
-        // Get the base directory of the application
-        string path = AppDomain.CurrentDomain.BaseDirectory;
 
+        }
+        // Handle the "test" command 
+        else if (args[0].ToLower() == "test")
+        {
+            // Setup a TftpClient instance
+            try
+            {
+                TftpClient client = new TftpClient(host);
+                Stream stream = new FileStream("tmp.txt", FileMode.Create, FileAccess.Write);
+                client.Upload("/dev/null").Start(stream);
+                Console.WriteLine("OK");
+                return;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("KO");
+                return;
+            }
+        }
         // Handle the "full" command to dump the entire NAND
-        if (args[0].ToLower() == "full")
+        else if (args[0].ToLower() == "full")
         {
             // Download the entire NAND to a single file
             DownloadFile("/dev/mmcblk0", Path.Combine(path, "full_nand.bin"), "full nand", 3909091328);
@@ -131,7 +172,8 @@ public class NandUtils
         Console.WriteLine("Uploading " + description + " (" + file + ") to " + partition + "...");
 
         // Setup a TftpClient instance
-        var client = new TftpClient(host);
+        TftpClient client = new TftpClient(host);
+     
 
         // Prepare a simple transfer
         ITftpTransfer transfer = client.Upload(partition);
@@ -197,5 +239,58 @@ public class NandUtils
     {
         Console.WriteLine("\nTransfer succeeded.");
         TransferFinishedEvent.Set();
+    }
+
+    static void extract(string filename, string destination)
+    {
+        // Check if the destination directory exists, if not, create it
+        if (!Directory.Exists(destination))
+        {
+            Directory.CreateDirectory(destination);
+        }
+
+        // Open the ext2 file system
+        using (FileStream fs = new FileStream(filename, FileMode.Open, FileAccess.Read))
+        using (ExtFileSystem extFs = new ExtFileSystem(fs))
+        {
+            ExtractDirectory(extFs, "", destination);
+        }
+    }
+
+    // helper function to extract files from a directory - for recursive extraction
+    static void ExtractDirectory(ExtFileSystem fileSystem, string sourcePath, string destinationPath)
+    {
+        // Créer le répertoire destination s'il n'existe pas
+        Directory.CreateDirectory(destinationPath);
+
+        foreach (var entry in fileSystem.GetFileSystemEntries(sourcePath))
+        {
+            string entryName = Path.GetFileName(entry);
+            string entryDestinationPath = Path.Combine(destinationPath, entryName);
+
+            var attributes = fileSystem.GetAttributes(entry);
+
+            if ((attributes & FileAttributes.Directory) != 0)
+            {
+                Console.WriteLine($"Entering directory: {entry}");
+
+                // Récursion pour les sous-répertoires
+                ExtractDirectory(fileSystem, entry, entryDestinationPath);
+            }
+            else if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                Console.WriteLine($"Skipping symlink: {entry}");
+            }
+            else
+            {
+                Console.WriteLine($"Extracting file: {entry}");
+
+                using (var sourceStream = fileSystem.OpenFile(entry, FileMode.Open))
+                using (var destinationStream = File.Create(entryDestinationPath))
+                {
+                    sourceStream.CopyTo(destinationStream);
+                }
+            }
+        }
     }
 }

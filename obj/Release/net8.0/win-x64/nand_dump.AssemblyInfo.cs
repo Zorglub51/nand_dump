@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("nand_dump")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8ce2ad7e802ec72e832c128732d24f2076fc144d")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e6f7d7581ba15aa60608c90fff8b09de13a61809")]
 [assembly: System.Reflection.AssemblyProductAttribute("nand_dump")]
 [assembly: System.Reflection.AssemblyTitleAttribute("nand_dump")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

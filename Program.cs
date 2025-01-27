@@ -4,6 +4,7 @@ using DiscUtils.Ext;
 using DiscUtils.Streams;
 using DiscUtils.Iso9660;
 using DiscUtils.Fat;
+using System.Collections.Concurrent;
 
 
 public class NandUtils
@@ -39,6 +40,7 @@ public class NandUtils
             Console.WriteLine("         test : tests TFTP connection");
             Console.WriteLine("         full : dumps a single file for the entire nand, including all partitions");
             Console.WriteLine("         split : dumps inidividual files for partitions 1, 2, 5, 6 (kernel), 7 (filsystem), 8 (game save states), 9 (emulator and games) and 10");
+            Console.WriteLine("         dump N file : dumps partition N to file");
             Console.WriteLine("         restore N file: restore partition N from file");
             Console.WriteLine("         fullrestore file: restore the entire nand from a given file");
             Console.WriteLine("         extract file destination: extract files from dumped partition 'file' to destination folder");
@@ -60,8 +62,31 @@ public class NandUtils
                 string destination = args[2];
                 extract(filename, destination);
             }
-
-
+        }
+        else if (args[0].ToLower() == "dump")
+        {
+            // Check if the correct number of arguments are provided
+            if (args.Length < 3)
+            {
+                // Display usage instructions for extract command
+                Console.WriteLine("usage : nand_dump.exe dump N file");
+                Console.WriteLine("     N : number of the partition to dump");
+                Console.WriteLine("     file : file path & name for the dump");
+                return;
+            }
+            else
+            {
+                string partitionNumber = args[1];
+                string filename = args[2];
+                if (PartitionsPCE.ContainsKey(int.Parse(partitionNumber)))
+                {
+                    DownloadFile(PartitionsPCE[int.Parse(partitionNumber)].Path, Path.Combine(path, filename), $"partition {partitionNumber}", PartitionsPCE[int.Parse(partitionNumber)].Size);
+                }
+                else
+                {
+                    Console.WriteLine("Partition number not found");
+                }
+            }
         }
         // Handle the "test" command 
         else if (args[0].ToLower() == "test")

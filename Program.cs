@@ -5,6 +5,9 @@ using DiscUtils.Streams;
 using DiscUtils.Iso9660;
 using DiscUtils.Fat;
 using System.Collections.Concurrent;
+using Renci.SshNet;
+using System.Net;
+using System.Text;
 
 
 public class NandUtils
@@ -44,6 +47,9 @@ public class NandUtils
             Console.WriteLine("         restore N file: restore partition N from file");
             Console.WriteLine("         fullrestore file: restore the entire nand from a given file");
             Console.WriteLine("         extract file destination: extract files from dumped partition 'file' to destination folder");
+            Console.WriteLine("         ssh command: execute a command on the remote host via SSH");
+            Console.WriteLine("         tftp source_file destination_path: transfer a file to a destination on the host via TFTP");
+            Console.WriteLine("         ftp source_file destination_path: transfer a file to a destination on the host via FTP");
         }
         else if (args[0].ToLower() == "extract")
         {
@@ -100,7 +106,8 @@ public class NandUtils
                 Console.WriteLine("OK");
                 return;
             }
-            catch (Exception e)
+            // Removed unused variable 'e' in the exception handler
+            catch (Exception)
             {
                 Console.WriteLine("KO");
                 return;
@@ -189,6 +196,63 @@ public class NandUtils
             {
                 Console.WriteLine("File " + file + " not found");
             }
+        }
+        else if (args[0].ToLower() == "ssh")
+        {
+            // Check if the correct number of arguments are provided
+            if (args.Length < 2)
+            {
+                Console.WriteLine("usage : nand_dump.exe ssh command");
+                Console.WriteLine("     command : the command to execute on the remote host");
+                return;
+            }
+
+            string command = string.Join(" ", args.Skip(1));
+            ExecuteSshCommand(command);
+        }
+        else if (args[0].ToLower() == "tftp")
+        {
+            // Check if the correct number of arguments are provided
+            if (args.Length < 3)
+            {
+                Console.WriteLine("usage : nand_dump.exe tftp source_file destination_path");
+                Console.WriteLine("     source_file : the local file to transfer");
+                Console.WriteLine("     destination_path : the destination path on the remote host");
+                return;
+            }
+
+            string sourceFile = args[1];
+            string destinationPath = args[2];
+
+            if (!File.Exists(sourceFile))
+            {
+                Console.WriteLine("Source file does not exist: " + sourceFile);
+                return;
+            }
+
+            UploadFile(destinationPath, sourceFile, "TFTP transfer");
+        }
+        else if (args[0].ToLower() == "ftp")
+        {
+            // Check if the correct number of arguments are provided
+            if (args.Length < 3)
+            {
+                Console.WriteLine("usage : nand_dump.exe ftp source_file destination_path");
+                Console.WriteLine("     source_file : the local file to transfer");
+                Console.WriteLine("     destination_path : the destination path on the remote host");
+                return;
+            }
+
+            string sourceFile = args[1];
+            string destinationPath = args[2];
+
+            if (!File.Exists(sourceFile))
+            {
+                Console.WriteLine("Source file does not exist: " + sourceFile);
+                return;
+            }
+
+            UploadFileViaFtp(sourceFile, destinationPath);
         }
     }
 
@@ -316,6 +380,68 @@ public class NandUtils
                     sourceStream.CopyTo(destinationStream);
                 }
             }
+        }
+    }
+
+    // Helper method to execute SSH commands
+    private static void ExecuteSshCommand(string command)
+    {
+        try
+        {
+            using (var client = new SshClient(host, "root", "")) // Empty password
+            {
+                client.Connect();
+                var result = client.RunCommand(command);
+                Console.WriteLine("Command Output: " + result.Result);
+                client.Disconnect();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error executing SSH command: " + ex.Message);
+        }
+    }
+
+    private static void UploadFileViaFtp(string sourceFile, string destinationPath)
+    {
+        try
+        {
+            Console.WriteLine("Transferring file via FTP...");
+
+            FtpWebRequest request = (FtpWebRequest)WebRequest.Create($"ftp://{host}/{destinationPath}");
+            request.Method = WebRequestMethods.Ftp.UploadFile;
+
+            // Set FTP credentials
+            request.Credentials = new NetworkCredential("root", "");
+
+            // Ensure binary transfer mode
+            request.UseBinary = true;
+
+            // Read the file data in binary mode
+            byte[] fileContents;
+            using (FileStream sourceStream = new FileStream(sourceFile, FileMode.Open, FileAccess.Read))
+            {
+                fileContents = new byte[sourceStream.Length];
+                sourceStream.Read(fileContents, 0, fileContents.Length);
+            }
+
+            request.ContentLength = fileContents.Length;
+
+            // Write the file data to the request stream
+            using (Stream requestStream = request.GetRequestStream())
+            {
+                requestStream.Write(fileContents, 0, fileContents.Length);
+            }
+
+            // Get the response from the FTP server
+            using (FtpWebResponse response = (FtpWebResponse)request.GetResponse())
+            {
+                Console.WriteLine($"Upload File Complete, status {response.StatusDescription}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error during FTP file transfer: " + ex.Message);
         }
     }
 }

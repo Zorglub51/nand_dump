@@ -8,7 +8,7 @@
       "version": "1.0.0",
       "restore": {
         "projectUniqueName": "E:\\pce\\dev-git\\nand_dump\\nand_dump.csproj",
-        "projectName": "nand_dump",
+        "projectName": "chronos_utils",
         "projectPath": "E:\\pce\\dev-git\\nand_dump\\nand_dump.csproj",
         "packagesPath": "C:\\Users\\Bix\\.nuget\\packages\\",
         "outputPath": "E:\\pce\\dev-git\\nand_dump\\obj\\",
@@ -44,7 +44,7 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "9.0.100"
+        "SdkAnalysisLevel": "9.0.200"
       },
       "frameworks": {
         "net8.0": {
@@ -65,8 +65,12 @@
             "Microsoft.NET.ILLink.Tasks": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[8.0.12, )",
+              "version": "[8.0.14, )",
               "autoReferenced": true
+            },
+            "SSH.NET": {
+              "target": "Package",
+              "version": "[2024.2.0, )"
             },
             "Tftp.Net": {
               "target": "Package",
@@ -89,7 +93,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.102/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.201/PortableRuntimeIdentifierGraph.json"
         }
       },
       "runtimes": {

@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("chronos_utils")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4e7b89e5cbe069cf429008452c59d7182cb81e46")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+a4959a5a7b93f3d4e9c6ef6999500c46b0140482")]
 [assembly: System.Reflection.AssemblyProductAttribute("chronos_utils")]
 [assembly: System.Reflection.AssemblyTitleAttribute("chronos_utils")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
